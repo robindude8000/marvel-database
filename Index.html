@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Marvel S.H.I.E.L.D. Database</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { orbitron: ['Orbitron', 'sans-serif'], outfit: ['Outfit', 'sans-serif'] },
+          colors: {
+            deepSpace: '#05050A', heroCyan: '#00E5FF', villainRed: '#FF003C', noobAccent: '#F59E0B',
+            glass: 'rgba(20, 25, 35, 0.65)', glassBorder: 'rgba(255, 255, 255, 0.1)'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #05050A;
+      background-image: linear-gradient(rgba(255, 255, 255, 0.01) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+      background-size: 30px 30px;
+    }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00E5FF; }
+    @keyframes spin-slow { 100% { transform: rotate(360deg); } }
+    @keyframes spin-reverse { 100% { transform: rotate(-360deg); } }
+    .animate-spin-slow { animation: spin-slow 3s linear infinite; }
+    .animate-spin-reverse { animation: spin-reverse 2s linear infinite; }
+
+    /* Smooth momentum scrolling for touch devices (carousel + modal body) */
+    .touch-scroll { -webkit-overflow-scrolling: touch; }
+
+    /* Bottom-sheet drag handle */
+    .sheet-handle { width: 40px; height: 4px; border-radius: 999px; background: rgba(255,255,255,0.25); }
+
+    /* Mobile search expand/collapse */
+    #searchWrap { transition: width 0.25s ease, opacity 0.2s ease; }
+    @media (max-width: 767px) {
+      #searchWrap.collapsed { width: 0; opacity: 0; pointer-events: none; overflow: hidden; }
+      #searchWrap.expanded { width: 100%; opacity: 1; }
+    }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen flex flex-col font-outfit">
+
+  <!-- TOP HEADER -->
+  <header class="sticky top-0 z-40 bg-glass backdrop-blur-md border-b border-glassBorder shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap md:flex-nowrap">
+
+      <!-- Logo row (always visible, always own row on mobile) -->
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="w-2 h-8 bg-heroCyan rounded-full shadow-[0_0_10px_#00E5FF]"></div>
+        <h1 class="text-lg sm:text-2xl font-black font-orbitron tracking-widest text-white uppercase drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">
+          Marvel <span class="text-slate-500 font-light hidden sm:inline">| Database</span>
+        </h1>
+      </div>
+
+      <!-- Controls row -->
+      <div class="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-end order-3 md:order-none">
+        <div class="flex items-center bg-white/5 border border-white/10 rounded-lg p-1 font-orbitron text-[11px] sm:text-[10px] tracking-widest uppercase shrink-0">
+          <button onclick="setAlignment('ALL')" id="align-ALL" class="align-btn px-2.5 sm:px-3 py-2 sm:py-1.5 rounded text-white bg-white/10 shadow-[0_0_10px_rgba(255,255,255,0.1)]">All</button>
+          <button onclick="setAlignment('Protagonist')" id="align-Protagonist" class="align-btn px-2.5 sm:px-3 py-2 sm:py-1.5 rounded text-slate-500 hover:text-heroCyan active:text-heroCyan transition-colors">Heroes</button>
+          <button onclick="setAlignment('Antagonist')" id="align-Antagonist" class="align-btn px-2.5 sm:px-3 py-2 sm:py-1.5 rounded text-slate-500 hover:text-villainRed active:text-villainRed transition-colors">Villains</button>
+        </div>
+
+        <!-- Search: icon-only toggle on mobile, always-visible field on desktop -->
+        <div class="relative flex items-center">
+          <button id="searchToggleBtn" onclick="toggleMobileSearch()" class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg bg-white/5 border border-white/10 text-slate-300 active:text-heroCyan shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </button>
+        </div>
+
+        <!-- Noob toggle: whole pill (switch + label) is one tappable control -->
+        <label for="noobToggle" class="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-2 sm:py-1.5 rounded-lg select-none cursor-pointer shrink-0">
+          <span class="relative inline-flex items-center">
+            <input type="checkbox" id="noobToggle" class="sr-only peer" onchange="toggleNoobMode()">
+            <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-300 after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-noobAccent"></div>
+          </span>
+          <span id="noobText" class="font-orbitron text-[10px] tracking-widest uppercase text-slate-500 transition-colors whitespace-nowrap">Noob Mode</span>
+        </label>
+      </div>
+
+      <!-- Search field: full-width collapsible row on mobile, inline on desktop -->
+      <div id="searchWrap" class="order-4 md:order-none collapsed md:!w-48 md:!opacity-100 relative w-full md:block">
+        <input type="text" id="searchInput" placeholder="Query Subject..." class="w-full bg-white/5 border border-white/10 font-orbitron text-xs rounded-lg pl-8 pr-3 py-2.5 md:py-2 focus:outline-none focus:border-heroCyan text-slate-200" oninput="handleSearch()"/>
+        <svg class="w-3.5 h-3.5 absolute left-2.5 top-3 md:top-2.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <!-- FACTION FILTER -->
+  <!-- Mobile: compact scrollable chip row, no centering math, generous tap targets -->
+  <div class="md:hidden w-full bg-white/[0.02] border-b border-white/5">
+    <div id="carouselTrackMobile" class="flex gap-2 overflow-x-auto hide-scrollbar touch-scroll px-4 py-3 snap-x snap-mandatory"></div>
+  </div>
+
+  <!-- Desktop: centered carousel with slide controls + drag -->
+  <div class="hidden md:block w-full relative overflow-hidden bg-white/[0.02] shadow-inner group">
+    <button onclick="slideCarousel('left')" class="absolute left-4 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-10 h-10 rounded-full bg-glass border border-white/20 text-white hover:border-heroCyan hover:text-heroCyan transition-all shadow-lg backdrop-blur-md cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <button onclick="slideCarousel('right')" class="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-10 h-10 rounded-full bg-glass border border-white/20 text-white hover:border-heroCyan hover:text-heroCyan transition-all shadow-lg backdrop-blur-md cursor-pointer">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+    </button>
+
+    <div class="absolute left-0 top-0 bottom-0 w-12 md:w-32 bg-gradient-to-r from-deepSpace to-transparent z-10 pointer-events-none"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-12 md:w-32 bg-gradient-to-l from-deepSpace to-transparent z-10 pointer-events-none"></div>
+    <div id="carouselTrack" class="flex gap-4 overflow-x-auto hide-scrollbar touch-scroll px-[calc(50vw-96px)] py-8 snap-x snap-mandatory scroll-smooth items-center min-h-[140px] cursor-grab select-none"></div>
+  </div>
+
+  <!-- FACTION DOSSIER (MOBILE-OPTIMIZED) -->
+  <div id="factionDossier" class="hidden w-full border-y border-heroCyan/30 bg-heroCyan/5 backdrop-blur-sm relative overflow-hidden transition-all duration-500">
+    <div class="absolute left-0 top-0 bottom-0 w-1 bg-heroCyan shadow-[0_0_15px_#00E5FF]"></div>
+    
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex flex-col md:flex-row items-start md:items-center gap-4 sm:gap-6 md:gap-8">
+      <div class="w-full md:w-1/3 shrink-0">
+        <h2 id="dossierName" class="font-orbitron font-black text-base sm:text-xl md:text-2xl text-white tracking-wide sm:tracking-widest uppercase break-words drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]"></h2>
+        <div class="inline-flex items-center gap-2 mt-2 bg-black/40 border border-white/10 px-3 py-1 rounded-full">
+          <span class="w-2 h-2 rounded-full bg-heroCyan animate-pulse"></span>
+          <span class="font-orbitron text-[10px] text-heroCyan tracking-widest uppercase">HQ: <span id="dossierHQ" class="text-slate-300"></span></span>
+        </div>
+      </div>
+      <div class="w-full md:w-2/3 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-8">
+        <p id="dossierLore" class="text-sm text-slate-300 font-outfit leading-relaxed"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main class="max-w-7xl mx-auto px-4 py-6 sm:py-8 flex-1 w-full flex flex-col">
+    <div class="flex items-center justify-between mb-6 font-orbitron text-[11px] sm:text-xs tracking-wide sm:tracking-widest uppercase border-b border-white/10 pb-2">
+      <div class="flex items-center gap-2 text-slate-400">
+        <span class="w-1.5 h-1.5 bg-heroCyan rounded-full animate-pulse shadow-[0_0_5px_#00E5FF]"></span>
+        Connection: <span class="text-white">Secure</span>
+      </div>
+      <div class="text-slate-500">Records: <span id="filteredCountText" class="text-heroCyan font-bold drop-shadow-[0_0_3px_#00E5FF]">0</span></div>
+    </div>
+
+    <div id="loadingSpinner" class="flex-1 flex flex-col items-center justify-center py-20">
+      <div class="relative w-24 h-24 mb-6">
+        <div class="absolute inset-0 border-t-2 border-heroCyan rounded-full animate-spin-slow"></div>
+        <div class="absolute inset-2 border-b-2 border-villainRed rounded-full animate-spin-reverse"></div>
+        <div class="absolute inset-4 border-l-2 border-slate-500 rounded-full animate-pulse"></div>
+      </div>
+      <p class="font-orbitron tracking-widest text-slate-400 text-sm animate-pulse uppercase">Decrypting Files...</p>
+    </div>
+
+    <div id="charactersGrid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 pb-12"></div>
+    
+    <div id="emptyState" class="hidden flex-1 flex flex-col items-center justify-center py-20 text-center">
+      <div class="w-16 h-16 border border-villainRed/50 rounded-lg flex items-center justify-center bg-villainRed/10 mb-4 shadow-[0_0_15px_rgba(255,0,60,0.2)]">
+        <svg class="w-8 h-8 text-villainRed" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="square" stroke-linejoin="miter" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+      </div>
+      <h3 class="font-orbitron text-lg font-bold text-white tracking-wider">No Records Match Query</h3>
+    </div>
+  </main>
+
+  <!-- DETAIL PANEL -->
+  <!-- Desktop: centered modal card. Mobile: full-bleed bottom sheet with drag handle. -->
+  <div id="detailModal" class="fixed inset-0 bg-deepSpace/90 backdrop-blur-md z-50 hidden flex flex-col items-center justify-end md:justify-center p-0 md:p-6 opacity-0 transition-opacity duration-300">
+    <div id="modalContent" class="bg-glass border border-glassBorder w-full md:max-w-2xl max-h-[92vh] md:max-h-[90vh] overflow-y-auto touch-scroll shadow-[0_-10px_50px_rgba(0,0,0,0.8)] md:shadow-[0_10px_50px_rgba(0,0,0,0.8)] relative flex flex-col transition-transform duration-300 translate-y-full md:translate-y-0 md:scale-95 rounded-t-2xl md:rounded-none">
+
+      <!-- Drag handle, mobile only -->
+      <div class="md:hidden flex justify-center pt-3 pb-1 sticky top-0 bg-glass z-10">
+        <div class="sheet-handle"></div>
+      </div>
+
+      <div class="p-5 sm:p-6 border-b border-white/10 flex items-start justify-between sticky top-0 md:top-0 bg-glass backdrop-blur-xl z-10">
+        <div class="pr-4">
+          <div class="flex items-center gap-3 mb-1 font-orbitron text-[10px] tracking-widest uppercase"><span id="modalFaction" class="text-heroCyan drop-shadow-[0_0_5px_rgba(0,229,255,0.5)]"></span></div>
+          <h2 id="modalName" class="text-2xl sm:text-3xl font-black font-orbitron text-white tracking-wide sm:tracking-widest drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]"></h2>
+          <h3 id="modalRealName" class="text-sm font-outfit text-slate-400 mt-1"></h3>
+        </div>
+        <button onclick="closeModal()" class="text-slate-500 hover:text-white active:text-white transition-colors bg-white/5 hover:bg-white/20 active:bg-white/20 p-2.5 rounded shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="p-5 sm:p-6 space-y-6 font-outfit">
+        <div><h4 class="font-orbitron text-xs font-bold text-slate-500 tracking-widest uppercase mb-3 flex items-center gap-2"><span class="w-1 h-1 bg-white rounded-full"></span> Origin</h4><p id="modalLore" class="text-sm text-slate-300 leading-relaxed bg-black/30 p-4 border border-white/5"></p></div>
+        <div><h4 class="font-orbitron text-xs font-bold text-slate-500 tracking-widest uppercase mb-3 flex items-center gap-2"><span class="w-1 h-1 bg-white rounded-full"></span> Role</h4><p id="modalRole" class="text-sm text-slate-300 leading-relaxed bg-black/30 p-4 border border-white/5"></p></div>
+        <div><h4 class="font-orbitron text-xs font-bold text-slate-500 tracking-widest uppercase mb-3 flex items-center gap-2"><span class="w-1 h-1 bg-white rounded-full"></span> Powers/Abilities</h4><p id="modalPowers" class="text-sm text-slate-300 leading-relaxed bg-black/30 p-4 border border-white/5 font-medium"></p></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let appData = { factions: [], characters: [] };
+    let filteredCharacters = [];
+    let activeFaction = 'ALL';
+    let activeAlignment = 'ALL';
+    let searchQuery = '';
+    let isNoobMode = false;
+    let factionMap = {};
+    let searchDebounceTimer = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      google.script.run.withSuccessHandler(onDataLoaded).withFailureHandler(onError).getAppData();
+      initCarouselDrag();
+    });
+
+    function onDataLoaded(data) {
+      if (!data.success) { onError({ message: data.error }); return; }
+      appData = data;
+      document.getElementById('loadingSpinner').classList.add('hidden');
+      document.getElementById('charactersGrid').classList.remove('hidden');
+      
+      appData.factions.forEach(f => { factionMap[f.FactionID] = f.FactionName || f.Name || f.FactionID; });
+      appData.factions.unshift({ FactionID: 'ALL', FactionName: 'Complete Database' });
+      factionMap['ALL'] = 'Complete Database';
+
+      renderCarousel();
+      applyFilters();
+    }
+
+    function onError(err) {
+      document.getElementById('loadingSpinner').innerHTML = `
+        <div class="text-villainRed font-orbitron text-center px-6">
+          <p class="font-bold tracking-widest uppercase">System Failure</p>
+          <p class="text-xs text-slate-400 mt-2 font-outfit normal-case">${(err && err.message) || err}</p>
+          <button onclick="retryLoad()" class="mt-5 font-orbitron text-[10px] tracking-widest uppercase px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-heroCyan hover:border-heroCyan active:text-heroCyan transition-colors">Retry Connection</button>
+        </div>`;
+    }
+
+    function retryLoad() {
+      document.getElementById('loadingSpinner').innerHTML = `
+        <div class="relative w-24 h-24 mb-6">
+          <div class="absolute inset-0 border-t-2 border-heroCyan rounded-full animate-spin-slow"></div>
+          <div class="absolute inset-2 border-b-2 border-villainRed rounded-full animate-spin-reverse"></div>
+          <div class="absolute inset-4 border-l-2 border-slate-500 rounded-full animate-pulse"></div>
+        </div>
+        <p class="font-orbitron tracking-widest text-slate-400 text-sm animate-pulse uppercase">Decrypting Files...</p>`;
+      google.script.run.withSuccessHandler(onDataLoaded).withFailureHandler(onError).getAppData();
+    }
+
+    // Shared chip builder for both mobile and desktop faction lists
+    function buildChip(f, isActive, count, mobile) {
+      const btn = document.createElement('div');
+      btn.id = mobile ? `carm-${f.FactionID}` : `car-${f.FactionID}`;
+      let classes = "shrink-0 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center backdrop-blur-sm border group select-none ";
+      if (mobile) {
+        classes += "snap-start px-4 py-2 rounded-lg min-w-[104px] ";
+        classes += isActive ? "bg-white/10 border-heroCyan shadow-[0_0_12px_rgba(0,229,255,0.2)]" : "bg-white/5 border-white/10 active:border-white/30";
+      } else {
+        classes += "snap-center ";
+        classes += isActive ? "w-48 h-24 bg-white/10 border-heroCyan shadow-[0_0_20px_rgba(0,229,255,0.2)] rounded-xl scale-110" : "w-36 h-16 bg-white/5 border-white/10 hover:border-white/30 rounded-lg opacity-50 hover:opacity-100 scale-95";
+      }
+      btn.className = classes;
+      btn.onclick = () => selectFaction(f.FactionID);
+      const nameClass = mobile
+        ? `font-orbitron font-bold text-[11px] tracking-wider text-center whitespace-nowrap ${isActive ? 'text-white' : 'text-slate-400'}`
+        : `font-orbitron font-bold text-xs tracking-wider text-center px-2 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`;
+      const countClass = mobile
+        ? `font-outfit text-[9px] mt-0.5 ${isActive ? 'text-heroCyan' : 'text-slate-500'}`
+        : `font-outfit text-[10px] mt-1 ${isActive ? 'text-heroCyan' : 'text-slate-500'}`;
+      btn.innerHTML = `<span class="${nameClass}">${factionMap[f.FactionID]}</span><span class="${countClass}">[${count} REC]</span>`;
+      return btn;
+    }
+
+    function renderCarousel() {
+      const track = document.getElementById('carouselTrack');
+      const trackMobile = document.getElementById('carouselTrackMobile');
+      track.innerHTML = '';
+      trackMobile.innerHTML = '';
+      appData.factions.forEach((f) => {
+        const isActive = activeFaction === f.FactionID;
+        const count = f.FactionID === 'ALL' ? appData.characters.length : appData.characters.filter(c => c.FactionID === f.FactionID).length;
+        track.appendChild(buildChip(f, isActive, count, false));
+        trackMobile.appendChild(buildChip(f, isActive, count, true));
+      });
+    }
+
+    function initCarouselDrag() {
+      const track = document.getElementById('carouselTrack');
+      let isDown = false;
+      let startX;
+      let scrollLeft;
+
+      track.addEventListener('mousedown', (e) => {
+        isDown = true;
+        track.classList.add('cursor-grabbing');
+        startX = e.pageX - track.offsetLeft;
+        scrollLeft = track.scrollLeft;
+      });
+
+      track.addEventListener('mouseleave', () => {
+        isDown = false;
+        track.classList.remove('cursor-grabbing');
+      });
+
+      track.addEventListener('mouseup', () => {
+        isDown = false;
+        track.classList.remove('cursor-grabbing');
+      });
+
+      track.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - track.offsetLeft;
+        const walk = (x - startX) * 1.5;
+        track.scrollLeft = scrollLeft - walk;
+      });
+    }
+
+    function slideCarousel(direction) {
+      const track = document.getElementById('carouselTrack');
+      const scrollAmount = 220;
+      track.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+    }
+
+    function toggleMobileSearch() {
+      const wrap = document.getElementById('searchWrap');
+      const isExpanded = wrap.classList.contains('expanded');
+      if (isExpanded) {
+        wrap.classList.remove('expanded');
+        wrap.classList.add('collapsed');
+      } else {
+        wrap.classList.remove('collapsed');
+        wrap.classList.add('expanded');
+        setTimeout(() => document.getElementById('searchInput').focus(), 260);
+      }
+    }
+
+    function renderFactionDossier() {
+      const dossier = document.getElementById('factionDossier');
+      if (activeFaction === 'ALL') {
+        dossier.classList.add('hidden');
+        return;
+      }
+      
+      const f = appData.factions.find(fac => fac.FactionID === activeFaction);
+      if (!f) return;
+
+      document.getElementById('dossierName').textContent = f.FactionName || f.FactionID;
+      document.getElementById('dossierHQ').textContent = f.LocationHQ || f['Location/HQ'] || 'Classified';
+      
+      const lore = isNoobMode ? (f.Lore_Noob || f.Lore || 'No data available.') : (f.Lore || 'No data available.');
+      document.getElementById('dossierLore').textContent = lore;
+
+      dossier.classList.remove('hidden');
+    }
+
+    function selectFaction(factionId) {
+      if (activeFaction === factionId) return;
+      activeFaction = factionId;
+      renderCarousel();
+
+      const newActiveDesktop = document.getElementById(`car-${factionId}`);
+      if (newActiveDesktop) newActiveDesktop.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+
+      const newActiveMobile = document.getElementById(`carm-${factionId}`);
+      if (newActiveMobile) newActiveMobile.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      
+      renderFactionDossier();
+      applyFilters();
+    }
+
+    function setAlignment(alignment) {
+      activeAlignment = alignment;
+      document.querySelectorAll('.align-btn').forEach(b => b.className = 'align-btn px-2.5 sm:px-3 py-2 sm:py-1.5 rounded text-slate-500 hover:text-white active:text-white transition-colors');
+      const activeBtn = document.getElementById(`align-${alignment}`);
+      if (activeBtn) activeBtn.className = 'align-btn px-2.5 sm:px-3 py-2 sm:py-1.5 rounded text-white bg-white/10 shadow-[0_0_10px_rgba(255,255,255,0.1)]';
+      applyFilters();
+    }
+
+    function handleSearch() {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+        applyFilters();
+      }, 150);
+    }
+
+    function toggleNoobMode() {
+      isNoobMode = document.getElementById('noobToggle').checked;
+      const noobText = document.getElementById('noobText');
+      noobText.className = isNoobMode ? 'font-orbitron text-[10px] tracking-widest uppercase font-bold text-noobAccent drop-shadow-[0_0_5px_#F59E0B] transition-colors whitespace-nowrap' : 'font-orbitron text-[10px] tracking-widest uppercase text-slate-500 transition-colors whitespace-nowrap';
+      
+      renderFactionDossier();
+      renderCharacters();
+    }
+
+    function applyFilters() {
+      filteredCharacters = appData.characters.filter(c => {
+        const matchesFaction = activeFaction === 'ALL' || c.FactionID === activeFaction;
+        const matchesAlignment = activeAlignment === 'ALL' || c.Alignment === activeAlignment;
+        const q = searchQuery;
+        const matchesSearch = !q || (c.Name && c.Name.toLowerCase().includes(q)) || (c.RealName && c.RealName.toLowerCase().includes(q)) || (c.Lore && c.Lore.toLowerCase().includes(q)) || (c.Lore_Noob && c.Lore_Noob.toLowerCase().includes(q)) || (c.PowerSet && c.PowerSet.toLowerCase().includes(q));
+        return matchesFaction && matchesAlignment && matchesSearch;
+      });
+      document.getElementById('filteredCountText').textContent = filteredCharacters.length;
+      renderCharacters();
+    }
+
+    function renderCharacters() {
+      const grid = document.getElementById('charactersGrid');
+      const emptyState = document.getElementById('emptyState');
+      grid.innerHTML = '';
+      if (filteredCharacters.length === 0) { grid.classList.add('hidden'); emptyState.classList.remove('hidden'); return; }
+      grid.classList.remove('hidden'); emptyState.classList.add('hidden');
+
+      filteredCharacters.forEach(c => {
+        const lore = isNoobMode ? (c.Lore_Noob || c.Lore || 'No data.') : (c.Lore || 'No data.');
+        const powers = isNoobMode ? (c.PowerSet_Noob || c.PowerSet || 'No data.') : (c.PowerSet || 'No data.');
+        const realNameDisplay = c.RealName ? `<p class="text-xs font-outfit text-slate-400 mb-2">${c.RealName}</p>` : '';
+        const mappedFactionName = factionMap[c.FactionID] || c.FactionID;
+        const isHero = c.Alignment === 'Protagonist';
+        
+        const cardShapeClasses = isHero ? "rounded-2xl border-b-2 border-transparent hover:border-heroCyan active:border-heroCyan hover:shadow-[0_8px_20px_rgba(0,229,255,0.15)]" : "rounded-tl-2xl rounded-br-2xl rounded-tr-sm rounded-bl-sm border-b-2 border-transparent hover:border-villainRed active:border-villainRed hover:shadow-[0_8px_20px_rgba(255,0,60,0.15)]";
+        const card = document.createElement('div');
+        card.className = `bg-glass border border-white/5 p-5 sm:p-6 flex flex-col justify-between cursor-pointer transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden backdrop-blur-md ${cardShapeClasses}`;
+        card.onclick = () => openModal(c, isHero, mappedFactionName);
+
+        const glowColor = isHero ? 'from-heroCyan/5' : 'from-villainRed/5';
+        card.innerHTML = `
+          <div class="absolute inset-0 bg-gradient-to-b ${glowColor} to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+          <div class="relative z-10">
+            <div class="text-[10px] font-orbitron tracking-widest text-slate-500 mb-2 uppercase">${mappedFactionName}</div>
+            <h3 class="text-lg sm:text-xl font-black font-orbitron text-white tracking-wide sm:tracking-wider transition-colors ${isHero ? 'group-hover:text-heroCyan' : 'group-hover:text-villainRed'}">${c.Name}</h3>
+            ${realNameDisplay}
+            <div class="h-2"></div>
+            <p class="text-xs text-slate-400 line-clamp-3 leading-relaxed mb-6 font-outfit group-hover:text-slate-300 transition-colors">${lore}</p>
+          </div>
+          <div class="relative z-10 pt-4 border-t border-white/10 mt-auto">
+            <span class="text-[9px] font-orbitron uppercase tracking-widest text-slate-500 block mb-1">Powers/Abilities</span>
+            <p class="text-xs text-slate-300 font-medium truncate font-outfit">${powers}</p>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openModal(c, isHero, mappedFactionName) {
+      const modal = document.getElementById('detailModal');
+      const content = document.getElementById('modalContent');
+      const lore = isNoobMode ? (c.Lore_Noob || c.Lore || 'No data.') : (c.Lore || 'No data.');
+      const role = isNoobMode ? (c.FactionRole_Noob || c.FactionRole || 'No data.') : (c.FactionRole || 'No data.');
+      const powers = isNoobMode ? (c.PowerSet_Noob || c.PowerSet || 'No data.') : (c.PowerSet || 'No data.');
+
+      document.getElementById('modalName').textContent = c.Name;
+      document.getElementById('modalRealName').textContent = c.RealName ? c.RealName : '';
+      const factionHeader = document.getElementById('modalFaction');
+      factionHeader.textContent = `${mappedFactionName} Database`;
+
+      const baseContentClasses = "bg-glass border-t border-l border-r border-white/10 w-full md:max-w-2xl max-h-[92vh] md:max-h-[90vh] overflow-y-auto touch-scroll relative flex flex-col transition-transform duration-300 rounded-t-2xl md:rounded-none";
+
+      if (isHero) {
+        factionHeader.className = "text-heroCyan drop-shadow-[0_0_5px_rgba(0,229,255,0.5)]";
+        content.className = `${baseContentClasses} border-b-4 border-b-heroCyan shadow-[0_-10px_50px_rgba(0,229,255,0.15)] md:shadow-[0_10px_50px_rgba(0,229,255,0.15)]`;
+        document.getElementById('modalName').classList.add('drop-shadow-[0_0_10px_rgba(0,229,255,0.5)]');
+        document.getElementById('modalName').classList.remove('drop-shadow-[0_0_10px_rgba(255,0,60,0.5)]');
+      } else {
+        factionHeader.className = "text-villainRed drop-shadow-[0_0_5px_rgba(255,0,60,0.5)]";
+        content.className = `${baseContentClasses} border-b-4 border-b-villainRed shadow-[0_-10px_50px_rgba(255,0,60,0.15)] md:shadow-[0_10px_50px_rgba(255,0,60,0.15)]`;
+        document.getElementById('modalName').classList.add('drop-shadow-[0_0_10px_rgba(255,0,60,0.5)]');
+        document.getElementById('modalName').classList.remove('drop-shadow-[0_0_10px_rgba(0,229,255,0.5)]');
+      }
+
+      document.getElementById('modalLore').textContent = lore;
+      document.getElementById('modalRole').textContent = role;
+      document.getElementById('modalPowers').textContent = powers;
+
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      // Force reflow so the slide-in transition actually plays
+      void content.offsetWidth;
+      setTimeout(() => {
+        modal.classList.remove('opacity-0'); modal.classList.add('opacity-100');
+        content.classList.remove('translate-y-full', 'md:scale-95');
+      }, 10);
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('detailModal');
+      const content = document.getElementById('modalContent');
+      modal.classList.remove('opacity-100'); modal.classList.add('opacity-0');
+      content.classList.add('translate-y-full', 'md:scale-95');
+      document.body.style.overflow = '';
+      setTimeout(() => { modal.classList.add('hidden'); }, 300);
+    }
+    document.getElementById('detailModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+
+    // Basic swipe-down-to-dismiss on the mobile sheet
+    (function initSwipeToDismiss() {
+      const content = document.getElementById('modalContent');
+      let startY = null;
+      content.addEventListener('touchstart', (e) => {
+        if (content.scrollTop > 0) { startY = null; return; }
+        startY = e.touches[0].clientY;
+      }, { passive: true });
+      content.addEventListener('touchmove', (e) => {
+        if (startY === null) return;
+        const delta = e.touches[0].clientY - startY;
+        if (delta > 0) content.style.transform = `translateY(${delta}px)`;
+      }, { passive: true });
+      content.addEventListener('touchend', (e) => {
+        if (startY === null) return;
+        const delta = (e.changedTouches[0].clientY - startY);
+        content.style.transform = '';
+        if (delta > 100) closeModal();
+        startY = null;
+      });
+    })();
+  </script>
+</body>
+</html>
